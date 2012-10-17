@@ -20,7 +20,7 @@ Planilha com dados:
 - Na primeira linha da planilha coloque o nome de cada variável.
 - Nas linhas seguintes coloque os valores das variáveis para cada um do registro, sendo que cada linha é um registro.
 - Uma das variáveis deve ser a palavra *Modelos*. Nela coloque o nome dos modelos que devem ser aplicados a cada registro para gerar os arquivos finais.
-- Pelo menos uma das vairáveis deve ter um asterisco (__\*x__) no final do nome, esse será o nome da pasta onde os documentos de cada resgistro serão colocados.
+- Pelo menos uma das vairáveis deve ter um asterisco (__\*__) no final do nome, esse será o nome da pasta onde os documentos de cada resgistro serão colocados.
 
 Modelos:
 - Dentro da pasta **modelos** crie arquivo no formado ODT (padrão comum do LibreOffice).
