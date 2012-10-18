@@ -22,50 +22,26 @@ import os
 from os.path import join
 import zipfile
 
-#import ezodf
 import uno
 
 
-PRINCIPAL = []
-
-if os.name == "nt":
-	os.chdir(join("C:\\","Mimir"))
-#open(os.get_cwd(),"r")
-
-def carregar_registros(nome_arq):
-    ctx = uno.getComponentContext()
-    smgr = ctx.ServiceManager
-    desktop = smgr.createInstanceWithContext( "com.sun.star.frame.Desktop",ctx)
-#desktop = context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", context)
-    document = desktop.getCurrentComponent()
-    oSheet = document.getSheets().getByIndex( 0 )
+def carregar_registros(oSheet):
     lCursor = oSheet.createCursor()
     lCursor.gotoStartOfUsedArea(False)
     lCursor.gotoEndOfUsedArea(True)
     nLinhas = lCursor.getRows().getCount()
     nColunas = lCursor.getColumns().getCount()
-
-
     # Le linha de títulos
     nomes = []
-    #for cell in planilha.row(0):
-    #    texto = cell.value
-    #    if texto:
-    #        texto = texto.strip()
-    #        if texto[-1:] == "*":
-    #            texto = texto[:-1]
-    #            PRINCIPAL.append(texto)
-    #        nomes.append(texto)
+    chaves_primarias = []
     for i in xrange(0,nColunas):
         texto = oSheet.getCellByPosition(i,0).getString()
-        print(texto)
         if texto:
             texto = texto.strip()
             if texto[-1:] == "*":
                 texto = texto[:-1]
-                PRINCIPAL.append(texto)
+                chaves_primarias.append(texto)
             nomes.append(texto)
-
     # Separa cada um dos registros colocando os nomes certos para cada célula
     registros = []
     for j in xrange(1,nLinhas):
@@ -76,61 +52,65 @@ def carregar_registros(nome_arq):
             for i in xrange(0,nColunas):
                 if len(nomes) > i:
                     texto = oSheet.getCellByPosition(i,j).getString()
-                    #texto = texto.replace("$","\$")
                     registro[nomes[i]] = texto
             registros.append(registro)
+    return registros, chaves_primarias
 
-    return registros
+def obter_documento():
+    context = uno.getComponentContext()
+    smgr = context.ServiceManager
+    desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop",context)
+    document = desktop.getCurrentComponent()
+    return document
+
+# Altera o diretorio de trabalho para o diretorio do documento
+def alterar_diretorio(document):
+    url = document.URL
+    syspath = uno.fileUrlToSystemPath(url)
+    directory = os.path.dirname(syspath)
+    os.chdir(directory)
+
+# Gera os arquivos baseado nos registros passados
+def gerar_arquivos(registros, chaves_primarias, nome_pasta):
+    if not os.path.exists(nome_pasta):
+        os.makedirs(nome_pasta)
+    for registro in registros:
+        modelos = registro["Modelos"].split(',')
+        # Cria pasta para colocar arquivos
+        if len(modelos):
+            diretorio = ""
+            for palavra in chaves_primarias:
+                diretorio += registro[palavra]
+            diretorio = join(nome_pasta, diretorio)
+            if not os.path.exists(diretorio):
+                os.makedirs(diretorio)
+        # Cria um arquivo para cada modelo pedido
+        for modelo in modelos:
+            modelo = modelo.strip()
+            caminho_modelo = join("modelos","%s.odt" % modelo)
+            compactado_modelo = zipfile.ZipFile(caminho_modelo,"r")
+            caminho_saida = join(diretorio,"%s.odt" % modelo)
+            compactado_saida = zipfile.ZipFile(caminho_saida,"w")
+            for item in compactado_modelo.infolist():
+                texto = compactado_modelo.read(item.filename)
+                if item.filename == "content.xml":
+                    texto = texto.decode('utf-8')
+                    # Faz as trocas das variáveis pelos valores corretos
+                    for variavel,valor in registro.items():
+                        texto = texto.replace("{%s}" % variavel, "%s" % valor)
+                    texto = texto.encode('utf-8')
+                compactado_saida.writestr(item, texto)
+            compactado_modelo.close()
+            compactado_saida.close()
 
 
-def main():
-	registros = carregar_registros("dados.ods")
+def PRINCIPAL():
+    document = obter_documento()
+    alterar_diretorio(document)
+    nPlanilhas = document.getSheets().getCount()
+    for i in range(0, nPlanilhas):
+        oSheet = document.getSheets().getByIndex(i)
+        registros, chaves_primarias = carregar_registros(oSheet)
+        nome_planilha = oSheet.getName()
+        gerar_arquivos(registros, chaves_primarias, nome_planilha)
 
-	DIRETORIO_GERADOS = "gerados"
-	if not os.path.exists(DIRETORIO_GERADOS):
-		os.makedirs(DIRETORIO_GERADOS)
-
-	for registro in registros:
-		modelos = registro["Modelos"].split(',')
-
-		# Cria pasta para colocar arquivos
-		if len(modelos):
-			diretorio = ""
-			for palavra in PRINCIPAL:
-				diretorio += registro[palavra]
-			diretorio = join(DIRETORIO_GERADOS, diretorio)
-			if not os.path.exists(diretorio):
-				os.makedirs(diretorio)
-
-		# Cria um arquivo para cada modelo pedido
-		for modelo in modelos:
-			modelo = modelo.strip()
-			caminho_modelo = join("modelos","%s.odt" % modelo)
-			compactado_modelo = zipfile.ZipFile(caminho_modelo,"r")
-			caminho_saida = join(diretorio,"%s.odt" % modelo)
-			compactado_saida = zipfile.ZipFile(caminho_saida,"w")
-			for item in compactado_modelo.infolist():
-				texto = compactado_modelo.read(item.filename)
-				if item.filename == "content.xml":
-					texto = texto.decode('utf-8')
-					# Faz as trocas das variáveis pelos valores corretos
-					for variavel,valor in registro.items():
-						texto = texto.replace("{%s}" % variavel, "%s" % valor)
-					texto = texto.encode('utf-8')
-				compactado_saida.writestr(item, texto)
-			compactado_modelo.close()
-			compactado_saida.close()
-
-
-
-#arq = open("modelo1.tex","r")
-#modelo = arq.read()
-#arq.close()
-#reg = registros[0]
-#
-#for variavel,valor in reg.items():
-#    modelo = modelo.replace(" {%s}" % variavel, " %s" % valor)
-#
-#arq = open("saida.tex","w")
-#arq.write(modelo)
-#arq.close()
