@@ -104,7 +104,7 @@ def gerar_arquivos(registros, chaves_primarias, nome_pasta):
             compactado_saida.close()
 
 
-def PRINCIPAL():
+def PRINCIPAL(variavel=None):
     document = obter_documento()
     alterar_diretorio(document)
     nPlanilhas = document.getSheets().getCount()
