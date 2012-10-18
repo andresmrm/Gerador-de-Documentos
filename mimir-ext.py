@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 #-----------------------------------------------------------------------------
@@ -28,10 +28,17 @@ import uno
 
 PRINCIPAL = []
 
+if os.name == "nt":
+	os.chdir(join("C:\\","Mimir"))
+#open(os.get_cwd(),"r")
+
 def carregar_registros(nome_arq):
-    desktop = context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", context)
+    ctx = uno.getComponentContext()
+    smgr = ctx.ServiceManager
+    desktop = smgr.createInstanceWithContext( "com.sun.star.frame.Desktop",ctx)
+#desktop = context.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", context)
     document = desktop.getCurrentComponent()
-    oSheet = oDoc.getSheets().getByIndex( 0 )
+    oSheet = document.getSheets().getByIndex( 0 )
     lCursor = oSheet.createCursor()
     lCursor.gotoStartOfUsedArea(False)
     lCursor.gotoEndOfUsedArea(True)
@@ -76,42 +83,43 @@ def carregar_registros(nome_arq):
     return registros
 
 
+def main():
+	registros = carregar_registros("dados.ods")
 
-registros = carregar_registros("dados.ods")
+	DIRETORIO_GERADOS = "gerados"
+	if not os.path.exists(DIRETORIO_GERADOS):
+		os.makedirs(DIRETORIO_GERADOS)
 
-DIRETORIO_GERADOS = "gerados"
-if not os.path.exists(DIRETORIO_GERADOS):
-    os.makedirs(DIRETORIO_GERADOS)
+	for registro in registros:
+		modelos = registro["Modelos"].split(',')
 
-for registro in registros:
-    modelos = registro["Modelos"].split(',')
+		# Cria pasta para colocar arquivos
+		if len(modelos):
+			diretorio = ""
+			for palavra in PRINCIPAL:
+				diretorio += registro[palavra]
+			diretorio = join(DIRETORIO_GERADOS, diretorio)
+			if not os.path.exists(diretorio):
+				os.makedirs(diretorio)
 
-    # Cria pasta para colocar arquivos
-    if len(modelos):
-        diretorio = ""
-        for palavra in PRINCIPAL:
-            diretorio += registro[palavra]
-        diretorio = join(DIRETORIO_GERADOS, diretorio)
-        if not os.path.exists(diretorio):
-            os.makedirs(diretorio)
-
-    # Cria um arquivo para cada modelo pedido
-    for modelo in modelos:
-        modelo = modelo.strip()
-        caminho_modelo = join("modelos","%s.odt" % modelo)
-        compactado_modelo = zipfile.ZipFile(caminho_modelo,"r")
-        caminho_saida = join(diretorio,"%s.odt" % modelo)
-        compactado_saida = zipfile.ZipFile(caminho_saida,"w")
-        for item in compactado_modelo.infolist():
-            texto = compactado_modelo.read(item.filename)
-            if item.filename == "content.xml":
-                texto = str(texto,"utf-8")
-                # Faz as trocas das variáveis pelos valores corretos
-                for variavel,valor in registro.items():
-                    texto = texto.replace("{%s}" % variavel, "%s" % valor)
-            compactado_saida.writestr(item, texto)
-        compactado_modelo.close()
-        compactado_saida.close()
+		# Cria um arquivo para cada modelo pedido
+		for modelo in modelos:
+			modelo = modelo.strip()
+			caminho_modelo = join("modelos","%s.odt" % modelo)
+			compactado_modelo = zipfile.ZipFile(caminho_modelo,"r")
+			caminho_saida = join(diretorio,"%s.odt" % modelo)
+			compactado_saida = zipfile.ZipFile(caminho_saida,"w")
+			for item in compactado_modelo.infolist():
+				texto = compactado_modelo.read(item.filename)
+				if item.filename == "content.xml":
+					texto = texto.decode('utf-8')
+					# Faz as trocas das variáveis pelos valores corretos
+					for variavel,valor in registro.items():
+						texto = texto.replace("{%s}" % variavel, "%s" % valor)
+					texto = texto.encode('utf-8')
+				compactado_saida.writestr(item, texto)
+			compactado_modelo.close()
+			compactado_saida.close()
 
 
 
